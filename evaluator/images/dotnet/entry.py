@@ -94,7 +94,7 @@ def find_nested_sln(path):
     return None
 
 
-def build_dotnet_project(run_tests: bool) -> BuildResult:
+def build_dotnet_project(run_tests: bool, timeout: str) -> BuildResult:
     output_dir = "output"
     paths = os.listdir(os.getcwd())
     sln = [p for p in paths if Path(p).suffix == ".sln"]
@@ -119,7 +119,10 @@ def build_dotnet_project(run_tests: bool) -> BuildResult:
     env["DOTNET_NOLOGO"] = "1"
     # workaround for https://github.com/dotnet/sdk/issues/31457
     env["DOTNET_EnableWriteXorExecute"] = "0"
-    cmd = ["dotnet"]
+    cmd = []
+    if timeout is not None:
+        cmd += ["timeout", timeout]
+    cmd += ["dotnet"]
     if run_tests:
         cmd += ["test"]
         if nested_sln_path:
@@ -131,6 +134,8 @@ def build_dotnet_project(run_tests: bool) -> BuildResult:
             cmd += ['"' + nested_sln_path + '"']
         cmd += ["--use-current-runtime", "--self-contained", "-o", output_dir]
     process = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if process.returncode == 124:
+        return BuildResult.fail(f"Build process timed out after {timeout} seconds.")
 
     # find an executable file in the output directory and create a symlink for the following tasks
     # in the pipeline
@@ -169,7 +174,8 @@ def build_dotnet_project(run_tests: bool) -> BuildResult:
 
 
 run_tests = os.getenv("PIPE_UNITTESTS", False)
-result = build_dotnet_project(run_tests)
+timeout = os.getenv("PIPE_TIMEOUT", "300")
+result = build_dotnet_project(run_tests, timeout)
 
 with open("result.html", "w") as out:
     stdout = bleach.clean(result.output.strip()).replace("\n", "<br />")
