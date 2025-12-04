@@ -24,3 +24,14 @@ def copyfile(src, dst):
             f.write(src.getvalue())
     else:
         shutil.copyfile(src, dst)
+
+
+def generate_identification(meta):
+    login = meta.get("login")
+    if login is None:
+        return None
+    timestamp = meta.get("submitted_at")
+    if timestamp is None:
+        return None
+    timestamp = timestamp.timestamp()
+    return {"id": f"{login}-{timestamp}"}

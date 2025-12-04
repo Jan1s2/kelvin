@@ -10,7 +10,7 @@ from common.utils import points_to_color
 from .results import TestResult
 from . import testsets
 
-from .utils import parse_human_size, copyfile
+from .utils import parse_human_size, copyfile, generate_identification
 
 logger = logging.getLogger("evaluator")
 
@@ -40,7 +40,9 @@ IMAGE_LIMITS = {
 }
 
 
-def create_docker_cmd(evaluation, image, additional_args=None, cmd=None, limits=None, env=None):
+def create_docker_cmd(
+    evaluation, image, additional_args=None, cmd=None, limits=None, env=None, labels=None
+):
     if not limits:
         limits = {}
     limits = {**DEFAULT_LIMITS, **IMAGE_LIMITS.get(image.split(":")[0], {}), **limits}
@@ -56,6 +58,9 @@ def create_docker_cmd(evaluation, image, additional_args=None, cmd=None, limits=
     if not env:
         env = {}
 
+    if not labels:
+        labels = {}
+
     if not additional_args:
         additional_args = []
 
@@ -65,6 +70,8 @@ def create_docker_cmd(evaluation, image, additional_args=None, cmd=None, limits=
         return v
 
     env = [f"-ePIPE_{k.upper()}={fmt_value(v)}" for k, v in env.items()]
+
+    labels = [f"--label={k}={fmt_value(v)}" for k, v in labels.items()]
 
     template_path = os.path.join("", evaluation.task_path, "template")
     if os.path.isdir(template_path):
@@ -96,6 +103,7 @@ def create_docker_cmd(evaluation, image, additional_args=None, cmd=None, limits=
         "-i",
         *additional_args,
         *env,
+        *labels,
         image,
         *cmd,
     ]
@@ -149,7 +157,10 @@ class DockerPipe:
         os.mkdir(result_dir)
 
         image = prepare_container(docker_image(self.image), self.before)
-        args = create_docker_cmd(evaluation, image, env=self.kwargs, limits=self.limits)
+        id_label = generate_identification(evaluation.meta)
+        args = create_docker_cmd(
+            evaluation, image, env=self.kwargs, limits=self.limits, labels=id_label
+        )
 
         def res_path(p):
             return os.path.join(result_dir, p)

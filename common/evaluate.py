@@ -16,6 +16,7 @@ from common.ai_review.processor import enqueue_llm_review_job
 from common.utils import is_teacher, build_absolute_uri
 from evaluator.evaluator import Evaluation
 from evaluator.testsets import TestSet
+from evaluator.evict import job_failure_callback
 from kelvin.settings import BASE_DIR
 
 
@@ -87,7 +88,13 @@ def evaluate_submit(request, submit, meta=None):
 
     # Enqueue the evaluation job
     return django_rq.get_queue(task.queue).enqueue(
-        evaluate_job, submit_url, task_url, token, meta, job_timeout=task.timeout
+        evaluate_job,
+        submit_url,
+        task_url,
+        token,
+        meta,
+        job_timeout=task.timeout,
+        on_failure=job_failure_callback,
     )
 
 
