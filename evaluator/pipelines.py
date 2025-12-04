@@ -291,6 +291,7 @@ class TestsPipe:
         os.mkdir(result_dir)
 
         image = prepare_container(docker_image("kelvin/run"), self.before)
+        id_label = generate_identification(evaluation.meta)
         container = (
             subprocess.check_output(
                 create_docker_cmd(
@@ -299,6 +300,7 @@ class TestsPipe:
                     additional_args=["-d"],
                     cmd=["sleep", 300],
                     limits=self.limits,
+                    labels=id_label,
                 )
             )
             .decode("utf-8")
